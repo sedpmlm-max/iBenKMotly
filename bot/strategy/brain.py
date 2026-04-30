@@ -276,9 +276,17 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
                     "reason": f"HEAL: HP={hp}, using {heal.get('typeId', 'heal')}"}
 
     # ── FREE ACTIONS ──────────────────────────────────────────────────
-    pickup_action = _check_pickup(visible_items, inventory, region_id)
-    if pickup_action:
-        return pickup_action
+    # FIX v1.5.7: cek enemy dulu — kalau ada enemy di region yang sama, skip pickup
+    enemies_here = [a for a in visible_agents
+                    if not a.get("isGuardian", False) and a.get("isAlive", True)
+                    and a.get("id") != self_data.get("id")
+                    and a.get("regionId") == region_id]
+
+    if not enemies_here:
+        # Aman — tidak ada enemy, boleh pickup
+        pickup_action = _check_pickup(visible_items, inventory, region_id)
+        if pickup_action:
+            return pickup_action
 
     equip_action = _check_equip(inventory, equipped)
     if equip_action:
