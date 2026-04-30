@@ -2,6 +2,13 @@
 Strategy brain — main decision engine with priority-based action selection.
 Implements the game-loop.md priority chain for high win rate.
 
+v1.5.4 improvements:
+- Combat lebih agresif: serang player kalau HP enemy < HP kita, atau enemy HP < 50, atau bisa habis dalam 3 hit
+- HP threshold combat diturunkan: 35 (early game) / 20 (late game)
+- Heal threshold dinaikkan ke HP < 80 (was 70) — selalu fit sebelum combat
+- Movement prioritas weapon — bonus score +8 kalau ada weapon di region tujuan
+- Tetap backward compatible dengan semua fix v1.5.3
+
 v1.5.3 fixes:
 - Removed duplicate _known_agents definition (was at line 99 AND 412)
 - Monster farming now requires HP >= 35 (was no HP check)
@@ -262,12 +269,13 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
         return None
 
     # ── Priority 3: Critical healing ──────────────────────────────────
+    # IMPROVED v1.5.4: heal threshold dinaikkan ke 80 biar selalu fit untuk combat
     if hp < 30:
         heal = _find_healing_item(inventory, critical=True)
         if heal:
             return {"action": "use_item", "data": {"itemId": heal["id"]},
                     "reason": f"CRITICAL HEAL: HP={hp}, using {heal.get('typeId', 'heal')}"}
-    elif hp < 70:
+    elif hp < 80:
         heal = _find_healing_item(inventory, critical=False)
         if heal:
             return {"action": "use_item", "data": {"itemId": heal["id"]},
@@ -301,7 +309,8 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
                                   f"(120 sMoltz! dmg={my_dmg} vs {guardian_dmg})"}
 
     # ── Priority 6: Favorable agent combat ───────────────────────────
-    hp_threshold = 40 if alive_count > 20 else 25
+    # IMPROVED v1.5.4: attack lebih agresif — serang kalau ada kesempatan menang
+    hp_threshold = 35 if alive_count > 20 else 20
     enemies = [a for a in visible_agents
                if not a.get("isGuardian", False) and a.get("isAlive", True)
                and a.get("id") != self_data.get("id")]
@@ -314,11 +323,23 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
             enemy_dmg = calc_damage(target.get("atk", 10),
                                     _estimate_enemy_weapon_bonus(target),
                                     defense, region_weather)
-            if my_dmg > enemy_dmg or target.get("hp", 100) <= my_dmg * 2:
+            enemy_hp = target.get("hp", 100)
+            # IMPROVED: serang kalau:
+            # - dmg kita lebih besar, ATAU
+            # - HP enemy <= 3x dmg kita (bisa habis dalam 3 hit), ATAU
+            # - HP kita lebih tinggi dari enemy (kita unggul), ATAU
+            # - enemy HP di bawah 50 (enemy udah lemah)
+            should_attack = (
+                my_dmg > enemy_dmg
+                or enemy_hp <= my_dmg * 3
+                or hp > enemy_hp
+                or enemy_hp < 50
+            )
+            if should_attack:
                 return {"action": "attack",
                         "data": {"targetId": target["id"], "targetType": "agent"},
-                        "reason": f"COMBAT: Target HP={target.get('hp', '?')}, "
-                                  f"dmg={my_dmg} vs enemy_dmg={enemy_dmg}"}
+                        "reason": f"COMBAT: Target HP={enemy_hp}, "
+                                  f"my_dmg={my_dmg} vs enemy_dmg={enemy_dmg}, our_hp={hp}"}
 
     # ── Priority 7: Monster farming ───────────────────────────────────
     # FIX v1.5.3: added HP >= 35 check (was no HP check — could fight while dying)
@@ -684,6 +705,14 @@ def _choose_move_target(connections, danger_ids: set,
 
             if rid in item_regions:
                 score += 5
+
+            # IMPROVED v1.5.4: bonus score kalau ada weapon di region itu
+            for item in visible_items:
+                if isinstance(item, dict) and item.get("regionId") == rid:
+                    if item.get("category") == "weapon":
+                        score += 8  # weapon sangat prioritas
+                    elif item.get("typeId", "").lower() in ("medkit", "bandage"):
+                        score += 3
 
             facs = conn.get("interactables", [])
             if facs:
