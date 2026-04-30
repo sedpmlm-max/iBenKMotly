@@ -252,6 +252,20 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
             return {"action": "move", "data": {"regionId": safe},
                     "reason": f"GUARDIAN FLEE: HP={hp}, guardian in region, too dangerous"}
 
+    # ── Priority 3: EMERGENCY healing — SEBELUM can_act check! ─────────
+    # FIX v1.5.5: use_item adalah free action, tidak butuh can_act=True
+    if hp < 30:
+        heal = _find_healing_item(inventory, critical=True)
+        if heal:
+            log.warning("🚨 EMERGENCY HEAL: HP=%d, using %s", hp, heal.get("typeId", "heal"))
+            return {"action": "use_item", "data": {"itemId": heal["id"]},
+                    "reason": f"EMERGENCY HEAL: HP={hp} CRITICAL! using {heal.get('typeId', 'heal')}"}
+    elif hp < 80:
+        heal = _find_healing_item(inventory, critical=False)
+        if heal:
+            return {"action": "use_item", "data": {"itemId": heal["id"]},
+                    "reason": f"HEAL: HP={hp}, using {heal.get('typeId', 'heal')}"}
+
     # ── FREE ACTIONS ──────────────────────────────────────────────────
     pickup_action = _check_pickup(visible_items, inventory, region_id)
     if pickup_action:
@@ -267,19 +281,6 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
 
     if not can_act:
         return None
-
-    # ── Priority 3: Critical healing ──────────────────────────────────
-    # IMPROVED v1.5.4: heal threshold dinaikkan ke 80 biar selalu fit untuk combat
-    if hp < 30:
-        heal = _find_healing_item(inventory, critical=True)
-        if heal:
-            return {"action": "use_item", "data": {"itemId": heal["id"]},
-                    "reason": f"CRITICAL HEAL: HP={hp}, using {heal.get('typeId', 'heal')}"}
-    elif hp < 80:
-        heal = _find_healing_item(inventory, critical=False)
-        if heal:
-            return {"action": "use_item", "data": {"itemId": heal["id"]},
-                    "reason": f"HEAL: HP={hp}, using {heal.get('typeId', 'heal')}"}
 
     # ── Priority 4: EP recovery ───────────────────────────────────────
     if ep == 0:
