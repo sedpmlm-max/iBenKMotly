@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>KBG Molty Royale — Command Center</title>
+<link rel="stylesheet" href="/static/style.css?v=20260423c">
+</head>
+<body>
+<nav class="sidebar">
+  <div class="logo"><h2>KBG MOLTY ROYALE</h2><span>Command Center v2</span></div>
+  <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+    <span class="nav-text">Dashboard</span>
+  </div>
+  <div class="nav-item" data-page="agents" onclick="showPage('agents')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/></svg>
+    <span class="nav-text">Agents</span>
+  </div>
+  <div class="nav-sep"></div>
+  <div class="nav-item" data-page="accounts" onclick="showPage('accounts')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/></svg>
+    <span class="nav-text">Accounts</span>
+  </div>
+  <div class="nav-item" data-page="data" onclick="showPage('data')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    <span class="nav-text">Data</span>
+  </div>
+  <div class="nav-item" data-page="export" onclick="showPage('export')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <span class="nav-text">Export</span>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="header">
+    <div class="stat-pill cyan"><span class="val" id="h-agents">0</span><span>Agents</span></div>
+    <div class="stat-pill green"><span class="val" id="h-playing">0</span><span>Playing</span></div>
+    <div class="stat-pill"><span class="val" style="color:var(--red)" id="h-dead">0</span><span>Dead</span></div>
+    <div class="stat-pill cyan"><span class="val" id="h-wins">0</span><span>Wins</span></div>
+    <div class="stat-pill amber"><span class="val" id="h-moltz">0</span><span>Moltz</span></div>
+    <div class="stat-pill amber"><span class="val" id="h-smoltz">0</span><span>sMoltz</span></div>
+  </div>
+
+  <div class="content">
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div class="agent-grid" id="agent-cards">
+        <div class="card" style="text-align:center;padding:40px;color:var(--text2)">
+          <span class="status-dot idle"></span> Connecting...
+        </div>
+      </div>
+
+      <!-- Log Panel — only visible on dashboard -->
+      <div class="log-panel">
+        <h3>Live Logs</h3>
+        <div class="log-tabs">
+          <div class="log-tab active" onclick="switchLogTab('all',this)">All</div>
+          <span id="agent-log-tabs"></span>
+        </div>
+        <div class="log-box" id="log-box"></div>
+      </div>
+    </div>
+
+    <!-- Agents Overview -->
+    <div class="page" id="page-agents">
+      <div class="card fade-in" style="margin-bottom:20px">
+        <h3>Agent Overview</h3>
+        <div style="display:flex;gap:16px;margin-bottom:16px">
+          <div class="stat-pill green"><span class="val" id="ov-active">0</span><span>Playing</span></div>
+          <div class="stat-pill amber"><span class="val" id="ov-idle">0</span><span>Idle</span></div>
+          <div class="stat-pill"><span class="val" style="color:var(--red)" id="ov-dead">0</span><span>Dead</span></div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Agent</th><th>Status</th><th>Moltz</th><th>sMoltz</th><th>CROSS</th><th>Wins</th><th>Whitelist</th></tr></thead>
+          <tbody id="agents-tbody"><tr><td colspan="7" style="color:var(--text2);text-align:center">No agents</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Accounts — Coming Soon -->
+    <div class="page" id="page-accounts">
+      <div class="maintenance-wrap">
+        <div class="maint-icon">
+          <svg viewBox="0 0 80 80" fill="none" stroke="var(--cyan)" stroke-width="1.5">
+            <circle cx="40" cy="40" r="36" stroke-dasharray="6 4" class="spin-slow"/>
+            <circle cx="40" cy="40" r="24" stroke-dasharray="4 6" class="spin-reverse"/>
+            <path d="M40 20v6M40 54v6M20 40h6M54 40h6" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="40" cy="40" r="6" fill="var(--cyan)" opacity=".3"/>
+          </svg>
+        </div>
+        <h2 class="maint-title">Account Manager</h2>
+        <div class="maint-badge">UNDER MAINTENANCE</div>
+        <p class="maint-desc">Multi-account management with wallet linking, API key rotation, and bulk operations is currently being engineered.</p>
+        <div class="maint-eta"><span class="maint-dot"></span> ETA: Next Update</div>
+      </div>
+    </div>
+
+    <!-- Data — Coming Soon -->
+    <div class="page" id="page-data">
+      <div class="maintenance-wrap">
+        <div class="maint-icon">
+          <svg viewBox="0 0 80 80" fill="none" stroke="var(--amber)" stroke-width="1.5">
+            <rect x="14" y="10" width="52" height="14" rx="3" stroke-dasharray="4 3" class="float-1"/>
+            <rect x="14" y="33" width="52" height="14" rx="3" stroke-dasharray="4 3" class="float-2"/>
+            <rect x="14" y="56" width="52" height="14" rx="3" stroke-dasharray="4 3" class="float-3"/>
+            <circle cx="26" cy="17" r="3" fill="var(--amber)" opacity=".5" class="blink"/>
+            <circle cx="26" cy="40" r="3" fill="var(--amber)" opacity=".5" class="blink-delay"/>
+            <circle cx="26" cy="63" r="3" fill="var(--green)" opacity=".5" class="blink"/>
+          </svg>
+        </div>
+        <h2 class="maint-title">Data Center</h2>
+        <div class="maint-badge" style="border-color:var(--amber);color:var(--amber)">COMING SOON</div>
+        <p class="maint-desc">Real-time analytics dashboard with game history, win/loss charts, earnings tracking, and performance insights across all agents.</p>
+        <div class="maint-eta"><span class="maint-dot" style="background:var(--amber)"></span> In Development</div>
+      </div>
+    </div>
+
+    <!-- Export — Coming Soon -->
+    <div class="page" id="page-export">
+      <div class="maintenance-wrap">
+        <div class="maint-icon">
+          <svg viewBox="0 0 80 80" fill="none" stroke="var(--green)" stroke-width="1.5">
+            <path d="M40 16v28" stroke-width="2" stroke-linecap="round" class="float-2"/>
+            <polyline points="30 36 40 46 50 36" stroke-width="2" stroke-linecap="round" class="float-2"/>
+            <path d="M20 52h40v12H20z" rx="3" stroke-dasharray="4 3"/>
+            <line x1="28" y1="58" x2="52" y2="58" stroke-width="2" stroke-linecap="round" opacity=".4"/>
+          </svg>
+        </div>
+        <h2 class="maint-title">Export & Import</h2>
+        <div class="maint-badge" style="border-color:var(--green);color:var(--green)">COMING SOON</div>
+        <p class="maint-desc">Full data portability — export game logs, account configs, strategy profiles, and import backups with one click.</p>
+        <div class="maint-eta"><span class="maint-dot" style="background:var(--green)"></span> In Development</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="/static/app.js?v=20260423d"></script>
+</body>
+</html>

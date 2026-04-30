@@ -1,0 +1,13 @@
+version: "3.8"
+services:
+  molty-bot:
+    build: .
+    env_file: .env
+    volumes:
+      - molty-memory:/root/.molty-royale
+      - ./dev-agent:/app/dev-agent
+    restart: unless-stopped
+    stdin_open: true  # For first-run intake prompts
+
+volumes:
+  molty-memory:
