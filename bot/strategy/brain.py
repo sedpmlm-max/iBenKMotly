@@ -77,6 +77,8 @@ WEATHER_COMBAT_PENALTY = {
 # FIX v1.5.3: removed duplicate _known_agents that was also defined at line 412
 _known_agents: dict = {}
 _map_knowledge: dict = {"revealed": False, "death_zones": set(), "safe_center": []}
+# FIX v1.5.6: track picked up item IDs to prevent double-pickup on stale view
+_picked_up_ids: set = set()
 
 
 def calc_damage(atk: int, weapon_bonus: int, target_def: int,
@@ -122,10 +124,17 @@ def _get_region_id(entry) -> str:
 
 def reset_game_state():
     """Reset per-game tracking state. Call when game ends."""
-    global _known_agents, _map_knowledge
+    global _known_agents, _map_knowledge, _picked_up_ids
     _known_agents = {}
     _map_knowledge = {"revealed": False, "death_zones": set(), "safe_center": []}
+    _picked_up_ids = set()
     log.info("Strategy brain reset for new game")
+
+
+def mark_item_picked_up(item_id: str):
+    """FIX v1.5.6: Mark an item as picked up so brain won't try again on stale view."""
+    global _picked_up_ids
+    _picked_up_ids.add(item_id)
 
 
 def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | None:
@@ -504,10 +513,16 @@ def learn_from_map(view: dict):
 def _check_pickup(items: list, inventory: list, region_id: str) -> dict | None:
     if len(inventory) >= 10:
         return None
+    # FIX v1.5.6: filter out items already picked up (stale view protection)
     local_items = [i for i in items
-                   if isinstance(i, dict) and i.get("regionId") == region_id]
+                   if isinstance(i, dict)
+                   and i.get("regionId") == region_id
+                   and i.get("id") not in _picked_up_ids]
     if not local_items:
-        local_items = [i for i in items if isinstance(i, dict) and i.get("id")]
+        local_items = [i for i in items
+                       if isinstance(i, dict)
+                       and i.get("id")
+                       and i.get("id") not in _picked_up_ids]
     if not local_items:
         return None
 

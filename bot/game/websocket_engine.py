@@ -21,7 +21,7 @@ import websockets
 from bot.config import WS_URL, SKILL_VERSION
 from bot.credentials import get_api_key
 from bot.game.action_sender import ActionSender, COOLDOWN_ACTIONS, FREE_ACTIONS
-from bot.strategy.brain import decide_action, reset_game_state, learn_from_map
+from bot.strategy.brain import decide_action, reset_game_state, learn_from_map, mark_item_picked_up
 from bot.dashboard.state import dashboard_state
 from bot.utils.rate_limiter import ws_limiter
 from bot.utils.logger import get_logger
@@ -73,6 +73,9 @@ class WebSocketEngine:
         self._map_item_id_pending = None
         self.dashboard_key = agent_id
         self.dashboard_name = "Agent"
+        # FIX v1.5.6: track last action for pickup dedup
+        self._last_action_type = None
+        self._last_action_item_id = None
 
     async def run(self) -> dict:
         """Main gameplay loop. Returns game result dict."""
@@ -158,6 +161,11 @@ class WebSocketEngine:
                 data = msg.get("data", {})
                 action_msg = data.get("message", "") if isinstance(data, dict) else str(data)
                 log.info("Action OK: %s (canAct=%s)", action_msg, msg.get("canAct"))
+
+                # FIX v1.5.6: mark item as picked up so brain won't double-pickup on stale view
+                if self._last_action_type == "pickup" and self._last_action_item_id:
+                    mark_item_picked_up(self._last_action_item_id)
+                    self._last_action_item_id = None
 
                 # FIX v1.5.3: detect map usage by matching itemId we sent (not server string)
                 if self._map_item_id_pending:
@@ -381,6 +389,10 @@ class WebSocketEngine:
                         self._map_item_id_pending = item_id
                         log.debug("Map use pending confirmation: itemId=%s", item_id[:8])
                     break
+
+        # FIX v1.5.6: remember what we're about to send for pickup dedup
+        self._last_action_type = action_type
+        self._last_action_item_id = action_data.get("itemId") if action_type == "pickup" else None
 
         payload = self.action_sender.build_action(
             action_type, action_data, reason, action_type,
