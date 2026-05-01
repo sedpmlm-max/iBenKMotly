@@ -2,12 +2,23 @@
 Strategy brain — main decision engine with priority-based action selection.
 Implements the game-loop.md priority chain for high win rate.
 
+v1.6.0 improvements (MAJOR):
+- PURSUIT: Bot ngejar enemy HP rendah ke region sebelah (finishing move!)
+- RANGE EXPLOIT: Pistol/bow/sniper tembak enemy di adjacent region
+- ADAPTIVE: Early game (>50 alive) farming, mid game (20-50) hybrid, late game (<20) full aggro
+- GUARDIAN FARM: Threshold diturunkan HP=40 (was 55), lebih berani ambil 120 sMoltz reward
+- EP MANAGEMENT: Simpan EP kalau ada enemy nearby, jangan buang buat explore
+
+v1.5.7 fixes:
+- Skip pickup kalau ada enemy di region yang sama
+- Fix double pickup on stale view (picked_up_ids tracking)
+- Heal sebelum can_act check (emergency heal always runs)
+
 v1.5.4 improvements:
 - Combat lebih agresif: serang player kalau HP enemy < HP kita, atau enemy HP < 50, atau bisa habis dalam 3 hit
 - HP threshold combat diturunkan: 35 (early game) / 20 (late game)
 - Heal threshold dinaikkan ke HP < 80 (was 70) — selalu fit sebelum combat
 - Movement prioritas weapon — bonus score +8 kalau ada weapon di region tujuan
-- Tetap backward compatible dengan semua fix v1.5.3
 
 v1.5.3 fixes:
 - Removed duplicate _known_agents definition (was at line 99 AND 412)
@@ -200,7 +211,7 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
 
     # ── Parse cross-game lessons for adaptive behavior (NEW v1.5.3) ──
     # Default thresholds
-    guardian_flee_hp = 55      # FIX: raised from 40 → 55
+    guardian_flee_hp = 40      # v1.6.0: turunkan ke 40 — lebih berani farming guardian (120 sMoltz!)
     be_aggressive = False
     avoid_combat_weather = region_weather in ("fog", "storm")
 
@@ -211,7 +222,7 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
             log.debug("Lesson applied: zero kills history → aggressive guardian mode")
         # If bot has won before, stay conservative
         if any("won with" in l.lower() for l in lessons):
-            guardian_flee_hp = 50  # Slightly less cautious
+            guardian_flee_hp = 35  # v1.6.0: won before → even more aggressive
 
     # ── Build danger map ──────────────────────────────────────────────
     danger_ids = set()
@@ -327,11 +338,24 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
                                   f"(120 sMoltz! dmg={my_dmg} vs {guardian_dmg})"}
 
     # ── Priority 6: Favorable agent combat ───────────────────────────
-    # IMPROVED v1.5.4: attack lebih agresif — serang kalau ada kesempatan menang
-    hp_threshold = 35 if alive_count > 20 else 20
+    # v1.6.0: ADAPTIVE game phase strategy
+    # Early (>50 alive): conservative, threshold HP=40
+    # Mid (20-50 alive): hybrid, threshold HP=30
+    # Late (<20 alive): full aggro, threshold HP=20
+    if alive_count > 50:
+        game_phase = "early"
+        hp_threshold = 40
+    elif alive_count > 20:
+        game_phase = "mid"
+        hp_threshold = 30
+    else:
+        game_phase = "late"
+        hp_threshold = 20
+
     enemies = [a for a in visible_agents
                if not a.get("isGuardian", False) and a.get("isAlive", True)
                and a.get("id") != self_data.get("id")]
+
     if enemies and ep >= 2 and hp >= hp_threshold and not avoid_combat_weather:
         target = _select_weakest(enemies)
         w_range = get_weapon_range(equipped)
@@ -342,22 +366,66 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
                                     _estimate_enemy_weapon_bonus(target),
                                     defense, region_weather)
             enemy_hp = target.get("hp", 100)
-            # IMPROVED: serang kalau:
-            # - dmg kita lebih besar, ATAU
-            # - HP enemy <= 3x dmg kita (bisa habis dalam 3 hit), ATAU
-            # - HP kita lebih tinggi dari enemy (kita unggul), ATAU
-            # - enemy HP di bawah 50 (enemy udah lemah)
             should_attack = (
                 my_dmg > enemy_dmg
                 or enemy_hp <= my_dmg * 3
                 or hp > enemy_hp
                 or enemy_hp < 50
+                or game_phase == "late"  # v1.6.0: late game selalu serang
             )
             if should_attack:
                 return {"action": "attack",
                         "data": {"targetId": target["id"], "targetType": "agent"},
-                        "reason": f"COMBAT: Target HP={enemy_hp}, "
+                        "reason": f"COMBAT [{game_phase}]: Target HP={enemy_hp}, "
                                   f"my_dmg={my_dmg} vs enemy_dmg={enemy_dmg}, our_hp={hp}"}
+
+    # ── Priority 6b: RANGE EXPLOIT — tembak enemy di adjacent region ──
+    # v1.6.0: kalau punya ranged weapon (pistol/bow/sniper), serang enemy sebelah!
+    w_range = get_weapon_range(equipped)
+    if w_range >= 1 and enemies and ep >= 2 and hp >= hp_threshold and not avoid_combat_weather:
+        for enemy in sorted(enemies, key=lambda e: e.get("hp", 999)):
+            enemy_region = enemy.get("regionId", "")
+            if enemy_region and enemy_region != region_id:
+                # Enemy di region sebelah — cek apakah dalam range
+                adj_ids = set()
+                for conn in connections:
+                    if isinstance(conn, str):
+                        adj_ids.add(conn)
+                    elif isinstance(conn, dict):
+                        adj_ids.add(conn.get("id", ""))
+                if enemy_region in adj_ids:
+                    my_dmg = calc_damage(atk, get_weapon_bonus(equipped),
+                                         enemy.get("def", 5), region_weather)
+                    enemy_hp = enemy.get("hp", 100)
+                    if enemy_hp <= my_dmg * 4 or enemy_hp < 60:
+                        log.info("🎯 RANGE ATTACK: %s HP=%d at adjacent region", 
+                                 enemy.get("name", "enemy")[:8], enemy_hp)
+                        return {"action": "attack",
+                                "data": {"targetId": enemy["id"], "targetType": "agent"},
+                                "reason": f"RANGE EXPLOIT: {equipped.get('typeId','weapon')} "
+                                          f"range={w_range}, Target HP={enemy_hp} adjacent region"}
+
+    # ── Priority 6c: FINISHING MOVE — pursuit enemy HP rendah ─────────
+    # v1.6.0: kalau enemy kabur ke region sebelah dengan HP rendah, kejar!
+    if enemies and ep >= move_ep_cost and hp >= hp_threshold:
+        for enemy in sorted(enemies, key=lambda e: e.get("hp", 999)):
+            enemy_hp = enemy.get("hp", 100)
+            enemy_region = enemy.get("regionId", "")
+            my_dmg = calc_damage(atk, get_weapon_bonus(equipped),
+                                  enemy.get("def", 5), region_weather)
+            # Kejar kalau enemy bisa dihabisi dalam 2 hit dan di region sebelah
+            if enemy_hp <= my_dmg * 2 and enemy_region and enemy_region != region_id:
+                adj_ids = set()
+                for conn in connections:
+                    if isinstance(conn, str):
+                        adj_ids.add(conn)
+                    elif isinstance(conn, dict):
+                        adj_ids.add(conn.get("id", ""))
+                if enemy_region in adj_ids and enemy_region not in danger_ids:
+                    log.info("🏃 FINISHING MOVE: Chasing enemy HP=%d to %s", 
+                             enemy_hp, enemy_region[:8])
+                    return {"action": "move", "data": {"regionId": enemy_region},
+                            "reason": f"FINISHING MOVE: Enemy HP={enemy_hp} (can kill in 2 hits), chasing!"}
 
     # ── Priority 7: Monster farming ───────────────────────────────────
     # FIX v1.5.3: added HP >= 35 check (was no HP check — could fight while dying)
@@ -388,7 +456,7 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
     # ── Priority 9: Strategic movement + late game pursuit ───────────
     if ep >= move_ep_cost and connections:
         # NEW v1.5.3: late game (< 10 alive) → pursue last known enemy
-        if alive_count < 10 and _known_agents:
+        if alive_count < 20 and _known_agents:  # v1.6.0: expanded from <10 to <20
             pursue_target = _find_pursuit_target(connections, danger_ids)
             if pursue_target:
                 return {"action": "move", "data": {"regionId": pursue_target},
@@ -401,9 +469,14 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
                     "reason": "EXPLORE: Moving to better position"}
 
     # ── Priority 10: Rest ─────────────────────────────────────────────
-    if ep < 4 and not enemies and not region.get("isDeathZone") and region_id not in danger_ids:
+    # v1.6.0: rest lebih agresif kalau EP rendah dan area aman — simpan EP buat combat
+    nearby_enemies = [a for a in visible_agents
+                      if not a.get("isGuardian", False) and a.get("isAlive", True)
+                      and a.get("id") != self_data.get("id")]
+    ep_rest_threshold = 6 if game_phase == "late" else 4  # late game butuh lebih banyak EP
+    if ep < ep_rest_threshold and not nearby_enemies and not region.get("isDeathZone") and region_id not in danger_ids:
         return {"action": "rest", "data": {},
-                "reason": f"REST: EP={ep}/{max_ep}, area is safe (+1 bonus EP)"}
+                "reason": f"REST: EP={ep}/{max_ep} [{game_phase}], conserving EP for combat"}
 
     return None
 
