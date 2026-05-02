@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>KBG Molty Royale — Command Center</title>
-<link rel="stylesheet" href="/static/style.css?v=20260423c">
+<link rel="stylesheet" href="/static/style.css?v=20260502a">
 </head>
 <body>
 <nav class="sidebar">
-  <div class="logo"><h2>KBG MOLTY ROYALE</h2><span>Command Center v2</span></div>
+  <div class="logo"><h2>KBG MOLTY ROYALE</h2><span>Command Center v3</span></div>
   <div class="nav-item active" data-page="dashboard" onclick="showPage('dashboard')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
     <span class="nav-text">Dashboard</span>
@@ -28,6 +28,10 @@
   <div class="nav-item" data-page="export" onclick="showPage('export')">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
     <span class="nav-text">Export</span>
+  </div>
+  <div class="nav-item" data-page="memory" onclick="showPage('memory')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a5 5 0 015 5v3a5 5 0 01-10 0V7a5 5 0 015-5z"/><path d="M9 17v1a3 3 0 006 0v-1"/><line x1="12" y1="22" x2="12" y2="17"/></svg>
+    <span class="nav-text">Memory</span>
   </div>
 </nav>
 
@@ -115,6 +119,101 @@
       </div>
     </div>
 
+    <!-- Memory & Stats -->
+    <div class="page" id="page-memory">
+      <!-- Summary Stats -->
+      <div class="mem-hero fade-in">
+        <div class="mem-stat-grid">
+          <div class="mem-stat-card" id="mc-games">
+            <div class="mem-stat-icon">🎮</div>
+            <div class="mem-stat-val" id="m-total-games">0</div>
+            <div class="mem-stat-label">Total Games</div>
+          </div>
+          <div class="mem-stat-card" id="mc-wins">
+            <div class="mem-stat-icon">🏆</div>
+            <div class="mem-stat-val" id="m-wins">0</div>
+            <div class="mem-stat-label">Total Wins</div>
+          </div>
+          <div class="mem-stat-card" id="mc-kills">
+            <div class="mem-stat-icon">💀</div>
+            <div class="mem-stat-val" id="m-avg-kills">0.0</div>
+            <div class="mem-stat-label">Avg Kills/Game</div>
+          </div>
+          <div class="mem-stat-card" id="mc-winrate">
+            <div class="mem-stat-icon">📊</div>
+            <div class="mem-stat-val" id="m-winrate">0%</div>
+            <div class="mem-stat-label">Win Rate</div>
+          </div>
+          <div class="mem-stat-card" id="mc-moltz">
+            <div class="mem-stat-icon">🪙</div>
+            <div class="mem-stat-val" id="m-total-moltz">0</div>
+            <div class="mem-stat-label">Total Moltz</div>
+          </div>
+          <div class="mem-stat-card" id="mc-smoltz">
+            <div class="mem-stat-icon">💎</div>
+            <div class="mem-stat-val" id="m-total-smoltz">0</div>
+            <div class="mem-stat-label">Total sMoltz</div>
+          </div>
+          <div class="mem-stat-card" id="mc-cross">
+            <div class="mem-stat-icon">⛓️</div>
+            <div class="mem-stat-val" id="m-total-cross">0</div>
+            <div class="mem-stat-label">Total CROSS</div>
+          </div>
+          <div class="mem-stat-card" id="mc-kills-total">
+            <div class="mem-stat-icon">⚔️</div>
+            <div class="mem-stat-val" id="m-total-kills">0</div>
+            <div class="mem-stat-label">Total Kills</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Win Rate Bar -->
+      <div class="card fade-in" style="margin-bottom:16px">
+        <h3>📈 Performance Overview</h3>
+        <div style="margin-bottom:16px">
+          <div class="bar-label" style="margin-bottom:6px">
+            <span class="bl">Win Rate</span>
+            <span class="bv" id="m-winrate-pct" style="color:var(--green)">0%</span>
+          </div>
+          <div class="bar-track" style="height:12px">
+            <div class="bar-fill hp" id="m-winrate-bar" style="width:0%"></div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+          <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:var(--green)" id="m-best-kills">0</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:4px">BEST KILLS IN 1 GAME</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:var(--cyan)" id="m-games-played-today">0</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:4px">GAMES THIS SESSION</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+            <div style="font-size:20px;font-weight:700;color:var(--amber)" id="m-avg-rank">—</div>
+            <div style="font-size:10px;color:var(--text2);margin-top:4px">AVG FINAL RANK</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Per-Agent Memory -->
+      <div class="card fade-in" style="margin-bottom:16px">
+        <h3>🤖 Per-Agent Stats</h3>
+        <table class="tbl">
+          <thead><tr><th>Agent</th><th>Games</th><th>Wins</th><th>Win%</th><th>Avg Kills</th><th>Total Kills</th><th>sMoltz</th></tr></thead>
+          <tbody id="mem-agents-tbody"><tr><td colspan="7" style="color:var(--text2);text-align:center">No data yet</td></tr></tbody>
+        </table>
+      </div>
+
+      <!-- Lessons Learned -->
+      <div class="card fade-in">
+        <h3>🧠 AI Lessons Learned</h3>
+        <p style="font-size:11px;color:var(--text2);margin-bottom:12px">Lessons accumulated from past games — used by bot to adapt strategy</p>
+        <div id="mem-lessons-list" style="display:flex;flex-direction:column;gap:8px">
+          <div style="color:var(--text2);font-size:12px;padding:12px;background:var(--surface2);border-radius:8px">No lessons recorded yet. Play more games!</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Export — Coming Soon -->
     <div class="page" id="page-export">
       <div class="maintenance-wrap">
@@ -136,6 +235,6 @@
 
 </div>
 
-<script src="/static/app.js?v=20260423d"></script>
+<script src="/static/app.js?v=20260502a"></script>
 </body>
 </html>
