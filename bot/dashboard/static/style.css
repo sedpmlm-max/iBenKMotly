@@ -141,5 +141,18 @@ a{color:var(--cyan);text-decoration:none}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--text2)}
 
-@media(max-width:1100px){.agent-grid{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr 1fr}.combat-row{grid-template-columns:repeat(3,1fr)}}
+/* ─── Memory Page ─────────────────────────────────────────────── */
+.mem-hero{margin-bottom:16px}
+.mem-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.mem-stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;transition:all .2s;cursor:default}
+.mem-stat-card:hover{border-color:rgba(0,210,255,.3);box-shadow:0 0 20px rgba(0,210,255,.08);transform:translateY(-2px)}
+.mem-stat-icon{font-size:24px;margin-bottom:8px}
+.mem-stat-val{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--cyan);margin-bottom:4px}
+.mem-stat-label{font-size:10px;color:var(--text2);text-transform:uppercase;letter-spacing:1px}
+#mc-wins .mem-stat-val{color:var(--green)}
+#mc-winrate .mem-stat-val{color:var(--amber)}
+#mc-kills .mem-stat-val{color:var(--red)}
+#mc-cross .mem-stat-val{color:var(--text)}
+
+@media(max-width:1100px){.agent-grid{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr 1fr}.combat-row{grid-template-columns:repeat(3,1fr)}.mem-stat-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:768px){.sidebar{width:60px;overflow:hidden}.sidebar .nav-text,.sidebar .logo span{display:none}.sidebar .logo h2{font-size:12px}.main{margin-left:60px}.header{padding:12px 16px}.content{padding:16px}.form-row{grid-template-columns:1fr}.agent-stats{grid-template-columns:repeat(2,1fr)}}
