@@ -4,6 +4,7 @@ Game settlement — Phase 3: process game end, update memory, prepare for next g
 v1.5.3: more detailed lessons recorded for cross-game brain adaptation.
 """
 from bot.memory.agent_memory import AgentMemory
+from bot.dashboard.state import dashboard_state
 from bot.utils.logger import get_logger
 
 log = get_logger(__name__)
@@ -54,5 +55,15 @@ async def settle_game(game_result: dict, entry_type: str, memory: AgentMemory):
 
     memory.clear_temp()
     await memory.save()
+
+    # v1.7.0: update dashboard memory stats
+    dashboard_state.record_game_result(
+        kills=kills,
+        is_winner=is_winner,
+        final_rank=final_rank,
+        smoltz_earned=smoltz_earned,
+        moltz_earned=moltz_earned,
+    )
+    dashboard_state.update_memory(memory.data)
 
     log.info("Settlement complete. Ready for next game.")
