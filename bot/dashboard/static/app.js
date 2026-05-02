@@ -78,6 +78,7 @@ function render() {
   try { renderAgentsTable(); } catch(e) {}
   try { renderDataTable(); } catch(e) {}
   try { renderLogs(); } catch(e) {}
+  try { renderMemory(); } catch(e) {}
 }
 
 // ─── Smooth text update (only if changed) ───
@@ -319,6 +320,105 @@ function importData(e) {
       .then(() => alert('Imported!')).catch(err => alert('Error'));
   };
   r.readAsText(f);
+}
+
+// ─── Memory Page ───
+function renderMemory() {
+  const agents = Object.values(S.agents || {});
+  const mem = S.memory || {};
+
+  // Aggregate stats from all agents
+  let totalGames = mem.totalGames || 0;
+  let totalWins = mem.wins || 0;
+  let avgKills = mem.avgKills || 0;
+  let totalKills = 0;
+  let totalMoltz = 0;
+  let totalSmoltz = 0;
+  let totalCross = 0;
+  let bestKills = mem.bestKills || 0;
+  let gamesThisSession = mem.gamesThisSession || 0;
+  let avgRank = mem.avgRank || 0;
+
+  // Also aggregate from live agent data
+  agents.forEach(a => {
+    totalMoltz += (a.moltz || 0);
+    totalSmoltz += (a.smoltz || 0);
+    totalCross += parseFloat(a.cross || 0);
+    totalKills += (a.total_kills || a.kills || 0);
+  });
+
+  // If memory has richer data, use it
+  if (mem.totalKills) totalKills = mem.totalKills;
+  if (mem.totalMoltz) totalMoltz = mem.totalMoltz;
+  if (mem.totalSmoltz) totalSmoltz = mem.totalSmoltz;
+
+  const winRate = totalGames > 0 ? Math.round((totalWins / totalGames) * 100) : 0;
+
+  // Update summary cards
+  setText('m-total-games', totalGames);
+  setText('m-wins', totalWins);
+  setText('m-avg-kills', avgKills.toFixed ? avgKills.toFixed(1) : avgKills);
+  setText('m-winrate', winRate + '%');
+  setText('m-winrate-pct', winRate + '%');
+  setText('m-total-moltz', fmt(totalMoltz));
+  setText('m-total-smoltz', fmt(totalSmoltz));
+  setText('m-total-cross', totalCross.toFixed ? totalCross.toFixed(4) : totalCross);
+  setText('m-total-kills', totalKills);
+  setText('m-best-kills', bestKills);
+  setText('m-games-played-today', gamesThisSession);
+  setText('m-avg-rank', avgRank ? '#' + Math.round(avgRank) : '—');
+
+  // Win rate bar
+  const bar = $('m-winrate-bar');
+  if (bar) bar.style.width = winRate + '%';
+
+  // Per-agent table
+  const tb = $('mem-agents-tbody');
+  if (tb) {
+    if (!agents.length) {
+      tb.innerHTML = '<tr><td colspan="7" style="color:var(--text2);text-align:center">No agents connected</td></tr>';
+    } else {
+      tb.innerHTML = agents.map(a => {
+        const ag = a.memory || {};
+        const games = ag.totalGames || totalGames || 0;
+        const wins = ag.wins || a.wins || 0;
+        const avgK = ag.avgKills || 0;
+        const kills = ag.totalKills || a.kills || 0;
+        const wr = games > 0 ? Math.round((wins/games)*100) : 0;
+        const wrColor = wr >= 20 ? 'var(--green)' : wr >= 10 ? 'var(--amber)' : 'var(--text2)';
+        return `<tr>
+          <td><strong>${esc(a.name||'Agent')}</strong></td>
+          <td>${games}</td>
+          <td>${wins}</td>
+          <td style="color:${wrColor};font-weight:700">${wr}%</td>
+          <td>${avgK.toFixed ? avgK.toFixed(1) : avgK}</td>
+          <td style="color:var(--red)">${kills}</td>
+          <td style="color:var(--amber)">${fmt(a.smoltz||0)}</td>
+        </tr>`;
+      }).join('');
+    }
+  }
+
+  // Lessons
+  const lessons = mem.lessons || [];
+  const lessonEl = $('mem-lessons-list');
+  if (lessonEl) {
+    if (!lessons.length) {
+      lessonEl.innerHTML = '<div style="color:var(--text2);font-size:12px;padding:12px;background:var(--surface2);border-radius:8px">No lessons recorded yet. Play more games!</div>';
+    } else {
+      lessonEl.innerHTML = lessons.slice().reverse().map((l, i) => {
+        const isRecent = i < 3;
+        const color = isRecent ? 'var(--cyan)' : 'var(--text2)';
+        const bg = isRecent ? 'rgba(0,210,255,0.06)' : 'var(--surface2)';
+        const border = isRecent ? '1px solid rgba(0,210,255,0.2)' : '1px solid var(--border)';
+        return `<div style="padding:10px 14px;background:${bg};border-radius:8px;border:${border};font-size:12px;color:${color};display:flex;align-items:flex-start;gap:10px">
+          <span style="opacity:.5;font-size:10px;white-space:nowrap;margin-top:1px">#${lessons.length - i}</span>
+          <span>${esc(l)}</span>
+          ${isRecent ? '<span style="margin-left:auto;font-size:10px;color:var(--cyan);opacity:.7">RECENT</span>' : ''}
+        </div>`;
+      }).join('');
+    }
+  }
 }
 
 // ─── Boot ───
