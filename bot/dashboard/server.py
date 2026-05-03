@@ -6,8 +6,24 @@ import os
 import json
 import asyncio
 from aiohttp import web
+from aiohttp.web import middleware
 from bot.dashboard.state import dashboard_state
 from bot.utils.logger import get_logger
+
+# ── CORS Middleware — allow master dashboard to fetch from any origin ──
+@middleware
+async def cors_middleware(request, handler):
+    if request.method == 'OPTIONS':
+        return web.Response(headers={
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        })
+    resp = await handler(request)
+    resp.headers['Access-Control-Allow-Origin'] = '*'
+    resp.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
+    resp.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    return resp
 
 log = get_logger(__name__)
 
@@ -138,10 +154,11 @@ async def api_import(request):
 
 def create_app() -> web.Application:
     """Create the aiohttp web application."""
-    app = web.Application()
+    app = web.Application(middlewares=[cors_middleware])
 
     # Routes
     app.router.add_get("/", index_handler)
+    app.router.add_route('OPTIONS', '/{path_info:.*}', lambda r: web.Response(status=200))
     app.router.add_get("/api/state", api_state)
     app.router.add_get("/api/accounts", api_accounts)
     app.router.add_post("/api/accounts", api_accounts_post)
