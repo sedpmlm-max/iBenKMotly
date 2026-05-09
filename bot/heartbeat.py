@@ -108,6 +108,9 @@ class Heartbeat:
                 return
             raise
 
+        # DEBUG: log full /accounts/me response to find erc8004Id location
+        import json as _json
+        log.info("DEBUG /accounts/me: %s", _json.dumps(me, default=str)[:500])
         state, ctx = determine_state(me)
         log.info("State: %s", state)
 
