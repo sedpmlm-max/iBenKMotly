@@ -36,11 +36,20 @@ def determine_state(me_response: dict) -> tuple[str, dict]:
                 "is_alive": game.get("isAlive", True),
             }
 
-    # Check ERC-8004 identity
-    erc8004_id = readiness.get("erc8004Id")
-    if erc8004_id is None:
+    # Check ERC-8004 identity — bisa di root level ATAU di readiness
+    erc8004_id = me_response.get("erc8004Id") or readiness.get("erc8004Id")
+    # Juga cek via readiness flags — kalau scWallet+whitelistApproved = sudah ready
+    readiness_complete = (
+        readiness.get("walletAddress") and
+        readiness.get("whitelistApproved") and
+        readiness.get("scWallet")
+    )
+    if erc8004_id is None and not readiness_complete:
         log.info("No ERC-8004 identity registered")
         return NO_IDENTITY, {}
+    elif erc8004_id is None and readiness_complete:
+        log.info("Readiness complete but no erc8004Id yet — treating as READY_FREE")
+        # Fall through to READY_FREE
 
     # Check paid readiness
     if readiness.get("paidReady", False):
