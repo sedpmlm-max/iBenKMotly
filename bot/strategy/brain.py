@@ -427,6 +427,49 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
                     return {"action": "move", "data": {"regionId": enemy_region},
                             "reason": f"FINISHING MOVE: Enemy HP={enemy_hp} (can kill in 2 hits), chasing!"}
 
+    # ── Priority 6d: HUNT — gerak mendekati enemy yang terlihat ────────
+    # v2.1.0: Kalau ada enemy visible tapi tidak dalam range → MOVE toward them
+    # Ini yang hilang sebelumnya — bot lihat musuh tapi tidak approach!
+    if enemies and ep >= move_ep_cost and hp >= hp_threshold and not avoid_combat_weather:
+        # Cari enemy yang bisa didekati (ada di adjacent region)
+        adj_ids = set()
+        for conn in connections:
+            if isinstance(conn, str):
+                adj_ids.add(conn)
+            elif isinstance(conn, dict):
+                adj_ids.add(conn.get("id", ""))
+
+        # Sort by HP (target yang lemah dulu)
+        for enemy in sorted(enemies, key=lambda e: e.get("hp", 999)):
+            enemy_region = enemy.get("regionId", "")
+            enemy_hp = enemy.get("hp", 100)
+            if not enemy_region or enemy_region == region_id:
+                continue  # Sudah di region yang sama, harusnya sudah di-handle Priority 6
+            # Enemy di adjacent region — move kesana untuk engage
+            if enemy_region in adj_ids and enemy_region not in danger_ids:
+                log.info("🏹 HUNT: Moving toward %s HP=%d at %s",
+                         enemy.get("name", "enemy")[:12], enemy_hp, enemy_region[:8])
+                return {"action": "move", "data": {"regionId": enemy_region},
+                        "reason": f"HUNT: Approaching {enemy.get('name','enemy')} HP={enemy_hp} in adjacent region"}
+
+        # Enemy visible tapi tidak di adjacent (lebih jauh) → move ke arah terbaik
+        # Pilih region yang paling dekat ke cluster enemy
+        enemy_regions = set(e.get("regionId", "") for e in enemies if e.get("regionId"))
+        best_move = None
+        for conn in connections:
+            conn_id = conn if isinstance(conn, str) else conn.get("id", "")
+            if conn_id and conn_id not in danger_ids:
+                # Prioritaskan region yang dekat dengan enemy
+                if conn_id in enemy_regions:
+                    best_move = conn_id
+                    break
+                if best_move is None:
+                    best_move = conn_id
+        if best_move and best_move not in danger_ids:
+            log.info("🔍 HUNT SEARCH: Moving toward enemy cluster")
+            return {"action": "move", "data": {"regionId": best_move},
+                    "reason": f"HUNT SEARCH: Moving toward {len(enemies)} visible enemies"}
+
     # ── Priority 7: Monster farming ───────────────────────────────────
     # FIX v1.5.3: added HP >= 35 check (was no HP check — could fight while dying)
     monsters = [m for m in visible_monsters if m.get("hp", 0) > 0]
