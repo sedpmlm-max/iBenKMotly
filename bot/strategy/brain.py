@@ -726,21 +726,29 @@ def _pickup_score(item: dict, inventory: list, heal_count: int) -> int:
 
 
 def _check_equip(inventory: list, equipped) -> dict | None:
+    """v2.1.2: fix weapon detection — cek typeId langsung, tidak rely on category field."""
     current_bonus = get_weapon_bonus(equipped) if equipped else 0
     best = None
     best_bonus = current_bonus
+
     for item in inventory:
         if not isinstance(item, dict):
             continue
-        if item.get("category") == "weapon":
-            type_id = item.get("typeId", "").lower()
-            bonus = WEAPONS.get(type_id, {}).get("bonus", 0)
-            if bonus > best_bonus:
-                best = item
-                best_bonus = bonus
+        # v2.1.2: cek typeId langsung ke WEAPONS dict — tidak perlu field "category"
+        type_id = (item.get("typeId") or item.get("type") or item.get("name") or "").lower()
+        if type_id not in WEAPONS:
+            continue
+        bonus = WEAPONS[type_id].get("bonus", 0)
+        if bonus > best_bonus:
+            best = item
+            best_bonus = bonus
+
     if best:
+        type_id = (best.get("typeId") or best.get("type") or "weapon").lower()
+        log.info("WEAPON UPGRADE: %s bonus=%d > current=%d — swapping!",
+                 type_id, best_bonus, current_bonus)
         return {"action": "equip", "data": {"itemId": best["id"]},
-                "reason": f"EQUIP: {best.get('typeId', 'weapon')} (+{best_bonus} ATK)"}
+                "reason": f"EQUIP UPGRADE: {type_id} (+{best_bonus} ATK vs current +{current_bonus})"}
     return None
 
 
