@@ -233,8 +233,19 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
             danger_ids.add(dz)
     for conn in connections:
         resolved = _resolve_region(conn, view)
-        if resolved and resolved.get("isDeathZone"):
-            danger_ids.add(resolved.get("id", ""))
+        if resolved:
+            # v2.1.1: tandai region yang isDeathZone ATAU yang "incoming" DZ
+            if resolved.get("isDeathZone"):
+                danger_ids.add(resolved.get("id", ""))
+            # Cek berbagai field yang menandakan DZ incoming
+            if (resolved.get("isDeathZonePending") or
+                resolved.get("deathZoneIncoming") or
+                resolved.get("isDangerous") or
+                resolved.get("pendingDeathZone")):
+                danger_ids.add(resolved.get("id", ""))
+    # Tambah current region ke danger jika current region sendiri DZ
+    if region.get("isDeathZone"):
+        danger_ids.add(region_id)
 
     _track_agents(visible_agents, self_data.get("id", ""), region_id)
 
@@ -251,12 +262,13 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
             log.error("🚨 IN DEATH ZONE but NO SAFE REGION!")
 
     # ── Priority 1b: Pre-escape pending DZ ───────────────────────────
-    if region_id in danger_ids:
+    # v2.1.1: escape DZ selalu prioritas — jangan masuk/tinggal di DZ demi musuh
+    if region_id in danger_ids or region.get("isDeathZone"):
         safe = _find_safe_region(connections, danger_ids, view)
-        if safe and ep >= move_ep_cost:
-            log.warning("⚠️ Region %s becoming DZ soon! Escaping to %s", region_id[:8], safe)
+        if safe:  # v2.1.1: hapus ep check — nyawa > EP, escape meski EP rendah
+            log.warning("⚠️ Region %s DZ/incoming! Escaping to %s (EP=%d)", region_id[:8], safe, ep)
             return {"action": "move", "data": {"regionId": safe},
-                    "reason": "PRE-ESCAPE: Region becoming death zone soon"}
+                    "reason": f"PRE-ESCAPE: Region DZ/incoming death zone, HP={hp}"}
 
     # ── Priority 2: Curse — DISABLED v1.5.2 ──────────────────────────
 
@@ -446,7 +458,18 @@ def decide_action(view: dict, can_act: bool, lessons: list = None) -> dict | Non
             if not enemy_region or enemy_region == region_id:
                 continue  # Sudah di region yang sama, harusnya sudah di-handle Priority 6
             # Enemy di adjacent region — move kesana untuk engage
-            if enemy_region in adj_ids and enemy_region not in danger_ids:
+            # v2.1.1: double-check region tidak DZ sebelum masuk
+            region_obj = None
+            for c in connections:
+                if isinstance(c, dict) and c.get("id") == enemy_region:
+                    region_obj = c
+                    break
+            is_enemy_region_safe = (
+                enemy_region not in danger_ids and
+                (region_obj is None or not region_obj.get("isDeathZone")) and
+                (region_obj is None or not region_obj.get("isDeathZonePending"))
+            )
+            if enemy_region in adj_ids and is_enemy_region_safe:
                 log.info("🏹 HUNT: Moving toward %s HP=%d at %s",
                          enemy.get("name", "enemy")[:12], enemy_hp, enemy_region[:8])
                 return {"action": "move", "data": {"regionId": enemy_region},
